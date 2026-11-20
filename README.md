@@ -1,32 +1,32 @@
-# Machine Round Flutter: `01-minimal`
+# Machine Round Flutter: `02-posts-list`
 
-Core infrastructure with no features. Start a round from here when the interviewer lets you bring a skeleton.
+A basic feature on top of `01-minimal`: fetch posts from `jsonplaceholder.typicode.com`, cache them locally (offline-first), and show loading, error with retry, empty and success states with pull-to-refresh. State management is **Bloc**.
 
 ```
-lib/
-  main.dart                 binding, BlocObserver, DI, runApp
-  app.dart                  MaterialApp.router (router injectable for tests)
-  ui/theme.dart             Material 3 light/dark
-  core/
-    error/app_exception.dart    sealed AppException + userMessage
-    result/result.dart          sealed Result<T> (Success / Failure), fold, map
-    network/dio_client.dart     Dio with timeouts and debug logging
-    network/safe_call.dart      safeCall(): any error -> typed AppException
-    storage/key_value_store.dart KeyValueStore (SharedPrefs + InMemory for tests)
-    bloc/transformers.dart      debounceRestartable (debounce + switchMap), dropWhileBusy
-    bloc/app_bloc_observer.dart logs bloc errors
-    ui/view_status.dart         initial / loading / success / failure
-    ui/widgets/state_views.dart LoadingView, ErrorView(retry), EmptyView, LoadMoreFooter
-    di/injector.dart            get_it registrations
-    router/app_router.dart      go_router shell
+features/posts/
+  domain/   Post (Equatable, fromJson/toJson), PostRepository (interface)
+  data/     PostApi (Dio), PostLocalSource (observable JSON cache), PostRepositoryImpl
+  presentation/list/  PostsBloc (+ event/state parts), PostsPage (route) + PostsView (stateless, testable)
+  posts_module.dart   get_it registrations
 ```
 
-## Why these choices (be ready to defend them)
+## Data flow
 
-- **Sealed `AppException` + `Result<T>`:** repositories never throw. The UI does an exhaustive `switch`, and the compiler tells you when a new error type is not handled. Widgets never import Dio.
-- **`safeCall` lives in the data layer.** Interceptor errors that carry an `AppException` (for example a failed token refresh) are unwrapped.
-- **`KeyValueStore` interface:** tests use `InMemoryStore`; swapping SharedPreferences for Hive/drift touches one file.
-- **Bloc event transformers:** `debounceRestartable` is `debounce` + `restartable()` (switchMap): a new query cancels the previous handler, so a slow old response can never overwrite a newer one.
-- **get_it** over Provider for DI: no `BuildContext` needed in repositories, trivial to override in tests (`sl.reset()`).
+```
+PostsStarted ─► add(PostsRefreshed)
+            └─► emit.forEach(repo.watchPosts())   // UI only observes the cache
+PostsRefreshed ─► repo.refresh() ─► api.getPosts() ─► local.replaceAll() ─► cache stream emits
+```
 
-Next: `git checkout 02-posts-list`.
+- **Offline-first:** cached posts render immediately. A network error then shows a snackbar over the cached list instead of wiping it. With an empty cache, it shows the full-screen error with Retry.
+- **`droppable()` on refresh:** spamming pull-to-refresh sends one request (tested).
+- **`emit.forEach`** keeps the cache subscription tied to the bloc's lifetime: no manual `StreamSubscription` to cancel.
+- **`RefreshIndicator`** awaits `bloc.stream.firstWhere((s) => !s.isRefreshing)` so the spinner stops at the right moment. The empty state is inside a scrollable so pull-to-refresh still works.
+- **Page vs View split:** `PostsPage` creates the bloc from get_it; `PostsView` only reads it, so widget tests pump it with a bloc built on `FakePostRepository`.
+
+## Tests (14)
+`safeCall` mapping (5), `PostsBloc` (5: success, empty-cache failure, cached-data failure, retry, dropped duplicate refresh), `PostsView` widget tests (3: data, error + retry, empty), app shell (1).
+
+## Branch ladder
+Each next branch builds on the previous one, so `git diff <prev>..<next>` shows exactly one feature:
+`02-posts-list` → `feature/post-detail` → `feature/pagination-manual` → `feature/search-debounce` → `main`.
