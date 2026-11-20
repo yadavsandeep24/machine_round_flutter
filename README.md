@@ -1,87 +1,110 @@
-# Machine Round Flutter: `feature/search-debounce`
+# Machine Round Flutter
 
-> Diff against the previous step: `git diff feature/pagination-manual..feature/search-debounce`
+A starter project for **Flutter machine coding rounds**: Dart 3, Bloc/Cubit, Clean Architecture, Dio, get_it, go_router, offline-first caching, manual pagination, debounced search, and tests. It is the Flutter counterpart of the Android `MachineCodingStarter`.
 
-## This step: server-side search with debounce and cancellation
+The sample feature fetches posts from `jsonplaceholder.typicode.com`, caches them locally, and supports pagination, debounced server-side search, pull-to-refresh, favorites shared across screens, loading/error/empty states, and a detail screen with comments.
 
-```
-keystroke ─► TextField (own controller: typing never lags)
-          ─► PostsQueryChanged(text)
-               switchMap(event ─► wait 300 ms (0 if blank or retry) ─► handler)
-                 └─ the next keystroke cancels the pending wait AND the running search
-               handler: trim ─► skip if same query already succeeded (distinct) ─► repo.search()
-```
+## Branches
 
-- **Why switchMap/restartable:** without it, a slow response for "fl" can land after "flutter" and overwrite it. Tested with per-query latency in the fake repository.
-- **Blank is instant:** clearing goes straight back to the cached browse list (no 300 ms wait).
-- **Retry** sends the same query with `force: true`, skipping both debounce and the distinct check.
-- **Results are not cached**; search goes straight to the API (`GET /posts?q=`). Old results stay visible under a `LinearProgressIndicator` while a new query loads.
-- **Local filtering instead?** Keep the same transformer and filter `state.posts` in the handler.
-- **Testing gotcha (worth knowing):** inside `testWidgets` (fake async), `await bloc.close()` on a bloc with a `switchMap`/`asyncExpand` transformer never completes. Let `BlocProvider(create:)` own the bloc, or use `tester.runAsync(bloc.close)`. And a zero-length `Future.delayed` can be skipped by `pumpAndSettle`, so the transformer calls the handler directly when there is no wait.
-- Tests: 5 search bloc tests (debounce, stale cancellation, distinct, instant clear, error + retry) and 1 widget test (type, empty result, clear). 31 total.
+**Step ladder.** Each branch builds on the one before, so `git diff <prev>..<next>` shows exactly one feature:
 
----
+| Branch | What it adds |
+|---|---|
+| `00-empty` | Blank app, all dependencies, Material 3 light/dark theme, strict lints. What many interviewers hand you. |
+| `01-minimal` | Core with no features: sealed `AppException`, `Result<T>`, `safeCall`, Dio, `KeyValueStore`, Bloc transformers, shared state widgets, get_it, go_router |
+| `02-posts-list` | Offline-first list with Bloc: cache stream, loading/error/empty, pull-to-refresh, dropped duplicate refreshes |
+| `feature/post-detail` | Cubit detail screen, `/posts/:id`, cache-then-network fallback, parallel comments with record `.wait` |
+| `feature/pagination-manual` | Load-more with a scroll trigger, footer states, end detection, refresh-vs-load-more race guard |
+| `feature/search-debounce` | Debounced server-side search with `switchMap` cancellation, instant clear, distinct, retry |
+| `main` | Everything above plus app-wide favorites (`FavoritesCubit` above the router, per-row `context.select`) |
 
-## Earlier step: `feature/pagination-manual`
+**Company and practice problems** (each built from `01-minimal`; sources in [docs/INTERVIEW_RESEARCH.md](docs/INTERVIEW_RESEARCH.md)):
 
-## This step: hand-written load-more
+| Branch | Problem |
+|---|---|
+| `deloitte/users-states-rebuilds` | **Reported Deloitte Flutter round (Jan 2026):** a screen with loading/success/error, then optimise a list to cut rebuilds. Includes a test that proves liking a user rebuilds zero rows. |
+| `ecommerce/product-list-cart` | Product grid with category/stock filters and sort, detail, and an app-wide persisted cart with stock caps and exact money (PhonePe / Nykaa-style "data synced across screens") |
+| `practice/offline-first-todo` | Local-first todos with a persisted outbox: ordered, idempotent sync, coalescing, backoff, in-flight edit protection, demo offline/server-failure switches |
+| `practice/login-persistent-session` | Login form, persisted session, go_router redirect on auth state, single-flight token refresh interceptor |
 
-- **Trigger:** a `NotificationListener<ScrollNotification>` sends `PostsNextPageRequested` when fewer than 400 px remain (`extentAfter`). No `ScrollController` to dispose, and the widget stays stateless.
-- **Guards in the bloc:** `droppable()` (one load at a time), plus no load while refreshing, after the end, before the first page succeeded, or after an error until the user taps Retry (no retry loop while scrolling).
-- **Footer:** `LoadMoreFooter` shows a spinner or the error with Retry; it disappears at the end.
-- **End of data:** a page shorter than the page size. Swap for `hasMore` / `total` / `nextCursor` when the API gives one.
-- **Refresh vs in-flight load-more race:** the repository bumps a `_generation` on refresh. A page that started under an older generation comes back as `PageResult(stale: true)` and is not appended onto the new page 1 (tested with a `Completer`).
-- **Dedupe by id** when appending, because offset paging can shift items between pages.
-- Tests: 4 bloc pagination tests, 3 repository tests with a mocktail `PostApi` and a real `PostLocalSource` on `InMemoryStore`. 25 total.
-
-> Interviewer says "use a package"? `infinite_scroll_pagination` gives a `PagingController`; explain that it replaces the trigger and footer, while the repository stays the same.
-
----
-
-## Earlier step: `feature/post-detail`
-
-## This step: detail screen (Cubit) and path-param routing
-
-- **Route** `/posts/:id` nested under `/` in go_router, so the back button works and deep links open straight to a post. The id goes through `int.tryParse`, never `int.parse`.
-- **Cubit, not Bloc,** for a simple screen: method calls (`load()`) instead of events. Contrast with `PostsBloc` when asked "Bloc vs Cubit?".
-- **Sealed state** (`Loading` / `Loaded` / `Error`) with an exhaustive `switch` in the widget.
-- **Cache first, network fallback** in `PostRepositoryImpl.getPost`, for posts that were never cached (deep links, search results).
-- **Parallel requests:** post and comments load together with Dart 3 record `.wait`. A comments failure shows inline and does not fail the screen.
-- **`isClosed` check** after `await`: the user may have popped the screen; emitting on a closed cubit throws.
-- **`registerFactoryParam`** passes the id into the cubit through get_it.
-- Tests: 4 more for the cubit (cached, network fallback, not found, comments failure). 18 total.
-
----
-
-## From `02-posts-list`
-
-A basic feature on top of `01-minimal`: fetch posts from `jsonplaceholder.typicode.com`, cache them locally (offline-first), and show loading, error with retry, empty and success states with pull-to-refresh. State management is **Bloc**.
-
-```
-features/posts/
-  domain/   Post (Equatable, fromJson/toJson), PostRepository (interface)
-  data/     PostApi (Dio), PostLocalSource (observable JSON cache), PostRepositoryImpl
-  presentation/list/  PostsBloc (+ event/state parts), PostsPage (route) + PostsView (stateless, testable)
-  posts_module.dart   get_it registrations
+```bash
+git checkout 02-posts-list && git checkout -b my-attempt      # practise a step yourself
+git diff 02-posts-list..feature/post-detail                    # then compare with the reference
 ```
 
-## Data flow
+Also read [docs/DART_FUNDAMENTALS.md](docs/DART_FUNDAMENTALS.md): the "predict the output" and widget-lifecycle questions that open most Flutter rounds.
+
+## Architecture
 
 ```
-PostsStarted ─► add(PostsRefreshed)
-            └─► emit.forEach(repo.watchPosts())   // UI only observes the cache
-PostsRefreshed ─► repo.refresh() ─► api.getPosts() ─► local.replaceAll() ─► cache stream emits
+presentation/               domain/                       data/
+┌───────────────────┐   ┌─────────────────────────┐   ┌───────────────────────────┐
+│ Page (DI, Provider)│   │ Post, Comment (Equatable)│   │ PostRepositoryImpl        │
+│ View (stateless)   │   │ PostRepository (iface)   │◄──│  ├─ PostApi (Dio)         │
+│   ▲ state │ event  │   │ PageResult               │   │  └─ PostLocalSource (cache│
+│ Bloc / Cubit ──────────►                          │   │      stream)              │
+└───────────────────┘   └─────────────────────────┘   └───────────────────────────┘
 ```
 
-- **Offline-first:** cached posts render immediately. A network error then shows a snackbar over the cached list instead of wiping it. With an empty cache, it shows the full-screen error with Retry.
-- **`droppable()` on refresh:** spamming pull-to-refresh sends one request (tested).
-- **`emit.forEach`** keeps the cache subscription tied to the bloc's lifetime: no manual `StreamSubscription` to cancel.
-- **`RefreshIndicator`** awaits `bloc.stream.firstWhere((s) => !s.isRefreshing)` so the spinner stops at the right moment. The empty state is inside a scrollable so pull-to-refresh still works.
-- **Page vs View split:** `PostsPage` creates the bloc from get_it; `PostsView` only reads it, so widget tests pump it with a bloc built on `FakePostRepository`.
+- **Dependency rule:** `presentation → domain ← data`. Domain has no Flutter, Dio or storage imports.
+- **Offline-first:** the list only observes the cache stream (`emit.forEach`). The network only writes into the cache.
+- **Errors:** repositories return `Result<T>`; `safeCall` maps Dio/parse errors to a sealed `AppException` with a `userMessage`. Widgets never import Dio.
 
-## Tests (14)
-`safeCall` mapping (5), `PostsBloc` (5: success, empty-cache failure, cached-data failure, retry, dropped duplicate refresh), `PostsView` widget tests (3: data, error + retry, empty), app shell (1).
+## Bloc vs Cubit (both are in the project)
 
-## Branch ladder
-Each next branch builds on the previous one, so `git diff <prev>..<next>` shows exactly one feature:
-`02-posts-list` → `feature/post-detail` → `feature/pagination-manual` → `feature/search-debounce` → `main`.
+| | **Cubit**: `PostDetailCubit`, `FavoritesCubit` | **Bloc**: `PostsBloc` |
+|---|---|---|
+| UI → logic | Calls methods (`load()`, `toggle(id)`) | Adds events (`PostsRefreshed`, `PostsQueryChanged`) |
+| Concurrency control | Manual (`isClosed`, request tokens) | Per-event transformers: `droppable()` for refresh/load-more, debounce + `switchMap` for search |
+| State | Sealed classes (`Loading/Loaded/Error`) | One immutable state with `copyWith` |
+| Use it when | Simple screens | Many interactions, or when debounce/cancel/drop matters |
+
+## Pagination
+- **Trigger:** `NotificationListener<ScrollNotification>` sends `PostsNextPageRequested` when `extentAfter < 400`.
+- **Guards:** `droppable()` plus no load while refreshing, at the end, before page 1 succeeded, or after an error until Retry.
+- **Race:** a refresh bumps a generation counter in the repository; a page that started earlier is returned as `stale` and not appended.
+- **End:** a short page. Use `hasMore`/`total`/`nextCursor` if the API has one.
+
+## Search
+```
+keystroke ─► TextField (own controller, never lags)
+          ─► PostsQueryChanged ─► switchMap(wait 300 ms, 0 if blank/retry ─► handler)
+                                   the next keystroke cancels the wait AND the running search
+          handler: trim ─► skip if same query already succeeded ─► GET /posts?q=
+```
+
+## Things interviewers look for (already handled)
+- Loading, error with Retry, empty and success states; cached data kept on network failure
+- `const` widgets, keys in lists, `buildWhen` / `BlocSelector` / `context.select` for targeted rebuilds
+- Page/View split: the Page creates the bloc from get_it; the View is pumped in tests with a fake
+- `isClosed` / `mounted` checks after `await`; controllers and subscriptions disposed
+- Deep-link-safe routes (`int.tryParse`), `extra` with a fetch fallback
+- Tests: `bloc_test`, `mocktail`, in-memory fakes, widget tests
+
+## SOLID, briefly
+- **S:** `PostApi` (network), `PostLocalSource` (cache), `PostRepositoryImpl` (policy), one bloc per screen.
+- **O:** new features are new folders plus a `register*Module()`; core untouched.
+- **L:** `FakePostRepository` honours the same contract as `PostRepositoryImpl` (including the network fallback).
+- **I:** small interfaces: `PostRepository`, `FavoritesRepository`, `KeyValueStore`.
+- **D:** domain owns the interfaces; get_it binds implementations.
+
+## Adapting it in the round (about 10 minutes)
+1. Change `kBaseUrl` in `core/network/dio_client.dart` (or pass `baseUrl` to `buildDio`).
+2. Copy `features/posts` to `features/<thing>`, rename, and update `fromJson` to the JSON.
+3. Register it in a `register<Thing>Module()` called from `configureDependencies()`.
+4. Add routes in `core/router/app_router.dart`.
+5. No API? Back the repository with an in-memory list, as the test fakes do.
+
+## Gotchas worth knowing (found while building this)
+- In `testWidgets` (fake async), `await bloc.close()` on a bloc whose transformer uses `switchMap`/`asyncExpand` never completes. Let `BlocProvider(create:)` own the bloc, or use `tester.runAsync(bloc.close)`.
+- `pumpAndSettle` does not flush a pending zero-length `Future.delayed` unless a frame is scheduled; avoid timers when the wait is zero.
+- Emitting on a closed cubit throws; check `isClosed` after every `await`.
+
+## Run
+
+```bash
+flutter pub get
+flutter analyze
+flutter test
+flutter run            # Android/iOS, or: flutter run -d chrome
+```
