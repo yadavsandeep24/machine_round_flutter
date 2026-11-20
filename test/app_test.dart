@@ -1,9 +1,10 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:machine_round/main.dart';
+import 'package:machine_round/app.dart';
 
 void main() {
-  testWidgets('blank app renders', (tester) async {
+  testWidgets('app shell renders the home route', (tester) async {
     await tester.pumpWidget(const App());
-    expect(find.text('Start here'), findsOneWidget);
+    await tester.pumpAndSettle();
+    expect(find.text('Machine Round'), findsOneWidget);
   });
 }

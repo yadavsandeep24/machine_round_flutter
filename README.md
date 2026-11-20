@@ -1,21 +1,32 @@
-# Machine Round Flutter: `00-empty`
+# Machine Round Flutter: `01-minimal`
 
-A blank Flutter app with every dependency already added, Material 3 theme (light and dark), and strict lints. This is what many interviewers hand you.
+Core infrastructure with no features. Start a round from here when the interviewer lets you bring a skeleton.
 
-| Package | Why |
-|---|---|
-| `flutter_bloc`, `bloc_concurrency`, `stream_transform` | State management (Bloc and Cubit), event transformers for debounce and cancellation |
-| `equatable` | Value equality for states and models |
-| `dio` | HTTP, interceptors, cancel tokens |
-| `get_it` | Service locator (DI) |
-| `go_router` | Declarative routing with path params and redirects |
-| `shared_preferences` | Simple local cache and token storage |
-| `bloc_test`, `mocktail` | Bloc tests and mocks |
-
-```bash
-flutter pub get
-flutter analyze
-flutter test
+```
+lib/
+  main.dart                 binding, BlocObserver, DI, runApp
+  app.dart                  MaterialApp.router (router injectable for tests)
+  ui/theme.dart             Material 3 light/dark
+  core/
+    error/app_exception.dart    sealed AppException + userMessage
+    result/result.dart          sealed Result<T> (Success / Failure), fold, map
+    network/dio_client.dart     Dio with timeouts and debug logging
+    network/safe_call.dart      safeCall(): any error -> typed AppException
+    storage/key_value_store.dart KeyValueStore (SharedPrefs + InMemory for tests)
+    bloc/transformers.dart      debounceRestartable (debounce + switchMap), dropWhileBusy
+    bloc/app_bloc_observer.dart logs bloc errors
+    ui/view_status.dart         initial / loading / success / failure
+    ui/widgets/state_views.dart LoadingView, ErrorView(retry), EmptyView, LoadMoreFooter
+    di/injector.dart            get_it registrations
+    router/app_router.dart      go_router shell
 ```
 
-Next step: `git checkout 01-minimal`.
+## Why these choices (be ready to defend them)
+
+- **Sealed `AppException` + `Result<T>`:** repositories never throw. The UI does an exhaustive `switch`, and the compiler tells you when a new error type is not handled. Widgets never import Dio.
+- **`safeCall` lives in the data layer.** Interceptor errors that carry an `AppException` (for example a failed token refresh) are unwrapped.
+- **`KeyValueStore` interface:** tests use `InMemoryStore`; swapping SharedPreferences for Hive/drift touches one file.
+- **Bloc event transformers:** `debounceRestartable` is `debounce` + `restartable()` (switchMap): a new query cancels the previous handler, so a slow old response can never overwrite a newer one.
+- **get_it** over Provider for DI: no `BuildContext` needed in repositories, trivial to override in tests (`sl.reset()`).
+
+Next: `git checkout 02-posts-list`.
