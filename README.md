@@ -1,32 +1,32 @@
-# Machine Round Flutter: `01-minimal`
+# Login with a persistent session and token refresh
 
-Core infrastructure with no features. Start a round from here when the interviewer lets you bring a skeleton.
+Built from `01-minimal`. API: dummyjson auth (`POST /auth/login`, `GET /auth/me`, `POST /auth/refresh`). Use the demo account published in the [dummyjson auth docs](https://dummyjson.com/docs/auth).
 
-```
-lib/
-  main.dart                 binding, BlocObserver, DI, runApp
-  app.dart                  MaterialApp.router (router injectable for tests)
-  ui/theme.dart             Material 3 light/dark
-  core/
-    error/app_exception.dart    sealed AppException + userMessage
-    result/result.dart          sealed Result<T> (Success / Failure), fold, map
-    network/dio_client.dart     Dio with timeouts and debug logging
-    network/safe_call.dart      safeCall(): any error -> typed AppException
-    storage/key_value_store.dart KeyValueStore (SharedPrefs + InMemory for tests)
-    bloc/transformers.dart      debounceRestartable (debounce + switchMap), dropWhileBusy
-    bloc/app_bloc_observer.dart logs bloc errors
-    ui/view_status.dart         initial / loading / success / failure
-    ui/widgets/state_views.dart LoadingView, ErrorView(retry), EmptyView, LoadMoreFooter
-    di/injector.dart            get_it registrations
-    router/app_router.dart      go_router shell
-```
+## Why this problem
+PrepFlutter's Machine Coding track lists **"Login with persistent session"** and the bug-hunt **"Auth refresh that logs users out" (Hard)**; token refresh under concurrency is also the standard follow-up after any authenticated list screen.
 
-## Why these choices (be ready to defend them)
+## What is built
+- **Login:** `Form` validation, show/hide password, autofill hints, loading button, double-submit guard, friendly message for bad credentials (dummyjson answers 400).
+- **Persistent session:** `TokenStore` saves tokens; launch restores the session **without a network call** (splash → home or login).
+- **Routing by state:** go_router `redirect` + `refreshListenable` on `AuthCubit.stream`. Login, logout and an expired refresh token all route correctly with no `context.go` calls in screens. The rules are a pure function (`authRedirect`), unit-tested.
+- **Protected screen:** Profile calls `GET /auth/me` with the bearer token; Logout clears the session.
 
-- **Sealed `AppException` + `Result<T>`:** repositories never throw. The UI does an exhaustive `switch`, and the compiler tells you when a new error type is not handled. Widgets never import Dio.
-- **`safeCall` lives in the data layer.** Interceptor errors that carry an `AppException` (for example a failed token refresh) are unwrapped.
-- **`KeyValueStore` interface:** tests use `InMemoryStore`; swapping SharedPreferences for Hive/drift touches one file.
-- **Bloc event transformers:** `debounceRestartable` is `debounce` + `restartable()` (switchMap): a new query cancels the previous handler, so a slow old response can never overwrite a newer one.
-- **get_it** over Provider for DI: no `BuildContext` needed in repositories, trivial to override in tests (`sl.reset()`).
+## The interceptor (what they really probe)
+`AuthInterceptor` on the authenticated Dio:
+1. `onRequest` adds `Authorization: Bearer <access>`.
+2. `onError` on **401**: if another request already refreshed (stored token ≠ the one sent), just retry. Otherwise refresh **once**.
+3. **Single-flight:** a shared `Completer` means 5 parallel 401s make **1** refresh call; the other 4 await it and retry with the new token.
+4. The retried request is marked (`extra['auth_retried']`) so a second 401 cannot loop.
+5. **Only 400/401/403 from the refresh endpoint logs out.** A 5xx or network error keeps the session: the user may only be offline. (Logging users out on any refresh failure is exactly the "Auth refresh that logs users out" bug.)
+6. The refresh call uses a **separate Dio without the interceptor**, so it can never recurse.
 
-Next: `git checkout 02-posts-list`.
+Alternative to mention: `QueuedInterceptor` serialises all interceptor callbacks, which also prevents parallel refreshes but blocks every request behind each one.
+
+## Tests (17)
+Interceptor with a fake `HttpClientAdapter` (4): bearer attached, 5 parallel 401s → 1 refresh, rejected refresh → session cleared + expired callback, 5xx refresh keeps the session. Auth flow (7): redirect rules (3), restore + logout, persistence across restart, bad-credential message, widget test (validation → sign in → redirected home). Core (5) and app shell (1).
+
+## Production notes
+- Store tokens with `flutter_secure_storage` (Keychain / Keystore), not SharedPreferences.
+- Refresh proactively when the JWT `exp` is near, to avoid the 401 round trip.
+- Clear user-scoped caches on logout.
+- Biometric unlock: keep the refresh token behind `local_auth` and re-prompt after inactivity.

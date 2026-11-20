@@ -1,21 +1,55 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../features/auth/presentation/auth_cubit.dart';
+import '../../features/auth/presentation/login_page.dart';
+import '../../features/profile/profile_page.dart';
+import '../ui/widgets/state_views.dart';
+
 abstract final class Routes {
+  static const splash = '/splash';
+  static const login = '/login';
   static const home = '/';
 }
 
-GoRouter buildRouter() => GoRouter(
-  initialLocation: Routes.home,
-  routes: [GoRoute(path: Routes.home, builder: (context, state) => const _HomePlaceholder())],
+/// Every auth change re-runs `redirect`: login, logout and an expired
+/// refresh token all route correctly without manual navigation calls.
+GoRouter buildRouter(AuthCubit auth) => GoRouter(
+  initialLocation: Routes.splash,
+  refreshListenable: _StreamListenable(auth.stream),
+  redirect: (context, state) => authRedirect(auth.state.status, state.matchedLocation),
+  routes: [
+    GoRoute(
+      path: Routes.splash,
+      builder: (_, __) => const Scaffold(body: LoadingView()),
+    ),
+    GoRoute(path: Routes.login, builder: (_, __) => const LoginPage()),
+    GoRoute(path: Routes.home, builder: (_, __) => const ProfilePage()),
+  ],
 );
 
-class _HomePlaceholder extends StatelessWidget {
-  const _HomePlaceholder();
+/// Pure function, so the routing rules are unit-testable.
+String? authRedirect(AuthStatus status, String location) {
+  return switch (status) {
+    AuthStatus.unknown => location == Routes.splash ? null : Routes.splash,
+    AuthStatus.unauthenticated => location == Routes.login ? null : Routes.login,
+    AuthStatus.authenticated =>
+      (location == Routes.login || location == Routes.splash) ? Routes.home : null,
+  };
+}
+
+class _StreamListenable extends ChangeNotifier {
+  _StreamListenable(Stream<dynamic> stream) {
+    _sub = stream.listen((_) => notifyListeners());
+  }
+
+  late final StreamSubscription<dynamic> _sub;
 
   @override
-  Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: const Text('Machine Round')),
-    body: const Center(child: Text('Add your first feature in lib/features/')),
-  );
+  void dispose() {
+    _sub.cancel();
+    super.dispose();
+  }
 }
