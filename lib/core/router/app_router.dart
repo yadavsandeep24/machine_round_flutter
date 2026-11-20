@@ -1,5 +1,8 @@
-import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+
+import '../../features/users/domain/user.dart';
+import '../../features/users/presentation/user_detail_page.dart';
+import '../../features/users/presentation/users_page.dart';
 
 abstract final class Routes {
   static const home = '/';
@@ -7,15 +10,14 @@ abstract final class Routes {
 
 GoRouter buildRouter() => GoRouter(
   initialLocation: Routes.home,
-  routes: [GoRoute(path: Routes.home, builder: (context, state) => const _HomePlaceholder())],
+  routes: [
+    GoRoute(path: Routes.home, builder: (context, state) => const UsersPage()),
+    GoRoute(
+      path: '/users/:id',
+      builder: (context, state) => UserDetailPage(
+        userId: int.tryParse(state.pathParameters['id'] ?? '') ?? -1,
+        initial: state.extra is User ? state.extra! as User : null,
+      ),
+    ),
+  ],
 );
-
-class _HomePlaceholder extends StatelessWidget {
-  const _HomePlaceholder();
-
-  @override
-  Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: const Text('Machine Round')),
-    body: const Center(child: Text('Add your first feature in lib/features/')),
-  );
-}
