@@ -26,6 +26,7 @@ The sample feature fetches posts from `jsonplaceholder.typicode.com`, caches the
 | `ecommerce/product-list-cart` | Product grid with category/stock filters and sort, detail, and an app-wide persisted cart with stock caps and exact money (PhonePe / Nykaa-style "data synced across screens") |
 | `practice/offline-first-todo` | Local-first todos with a persisted outbox: ordered, idempotent sync, coalescing, backoff, in-flight edit protection, demo offline/server-failure switches |
 | `practice/login-persistent-session` | Login form, persisted session, go_router redirect on auth state, single-flight token refresh interceptor |
+| `practice/bugs-and-optimisation` | **Top 10 fix-the-bug and optimisation questions** (setState after dispose, timer leak, controller/Future in build, mutated state, missing keys, unbounded ListView, non-lazy list, rebuild storm, JSON on the UI thread). Each has `buggy.dart`, `fixed.dart`, a Buggy/Fixed demo, and a test that proves both. |
 
 ```bash
 git checkout 02-posts-list && git checkout -b my-attempt      # practise a step yourself
