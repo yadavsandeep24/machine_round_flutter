@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:machine_round/core/error/app_exception.dart';
+import 'package:machine_round/core/storage/key_value_store.dart';
+import 'package:machine_round/features/favorites/favorites_cubit.dart';
+import 'package:machine_round/features/favorites/favorites_repository.dart';
 import 'package:machine_round/features/posts/presentation/list/posts_bloc.dart';
 import 'package:machine_round/features/posts/presentation/list/posts_page.dart';
 
@@ -10,10 +13,13 @@ import '../../helpers/fake_post_repository.dart';
 /// The widget tree owns the bloc, so it is closed when the tree is disposed.
 /// Do not `await bloc.close()` inside testWidgets: a bloc whose transformer
 /// uses switchMap/asyncExpand never finishes closing in the fake-async zone.
-Widget _host(FakePostRepository repo) => MaterialApp(
-  home: BlocProvider(
-    create: (_) => PostsBloc(repo, debounce: Duration.zero)..add(const PostsStarted()),
-    child: const PostsView(),
+Widget _host(FakePostRepository repo) => BlocProvider(
+  create: (_) => FavoritesCubit(LocalFavoritesRepository(InMemoryStore())),
+  child: MaterialApp(
+    home: BlocProvider(
+      create: (_) => PostsBloc(repo, debounce: Duration.zero)..add(const PostsStarted()),
+      child: const PostsView(),
+    ),
   ),
 );
 
@@ -58,5 +64,14 @@ void main() {
     await tester.tap(find.byTooltip('Clear'));
     await tester.pumpAndSettle();
     expect(find.text('Post 1'), findsOneWidget);
+  });
+
+  testWidgets('favorite toggles on the tapped row only', (tester) async {
+    await tester.pumpWidget(_host(FakePostRepository()));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byTooltip('Add to favorites').first);
+    await tester.pump();
+    expect(find.byTooltip('Remove from favorites'), findsOneWidget);
   });
 }

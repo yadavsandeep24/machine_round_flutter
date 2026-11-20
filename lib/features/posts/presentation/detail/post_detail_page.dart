@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/di/injector.dart';
 import '../../../../core/ui/widgets/state_views.dart';
+import '../../../favorites/favorite_button.dart';
 import '../../domain/comment.dart';
 import 'post_detail_cubit.dart';
 
@@ -24,7 +25,18 @@ class PostDetailView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Post')),
+      appBar: AppBar(
+        title: const Text('Post'),
+        actions: [
+          BlocBuilder<PostDetailCubit, PostDetailState>(
+            buildWhen: (a, b) => a.runtimeType != b.runtimeType,
+            builder: (context, state) => switch (state) {
+              PostDetailLoaded(:final post) => FavoriteButton(id: post.id),
+              _ => const SizedBox.shrink(),
+            },
+          ),
+        ],
+      ),
       body: BlocBuilder<PostDetailCubit, PostDetailState>(
         builder: (context, state) => switch (state) {
           PostDetailLoading() => const LoadingView(),

@@ -6,6 +6,7 @@ import '../../../../core/di/injector.dart';
 import '../../../../core/router/app_router.dart';
 import '../../../../core/ui/view_status.dart';
 import '../../../../core/ui/widgets/state_views.dart';
+import '../../../favorites/favorite_button.dart';
 import '../../domain/post.dart';
 import 'posts_bloc.dart';
 
@@ -107,6 +108,7 @@ class _PostList extends StatelessWidget {
             key: ValueKey(post.id),
             post: post,
             onTap: () => context.go(Routes.postDetail(post.id)),
+            trailing: FavoriteButton(id: post.id),
           );
         },
       ),
@@ -199,6 +201,7 @@ class _SearchResults extends StatelessWidget {
                 key: ValueKey(post.id),
                 post: post,
                 onTap: () => context.go(Routes.postDetail(post.id)),
+                trailing: FavoriteButton(id: post.id),
               );
             },
           ),
