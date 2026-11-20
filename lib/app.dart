@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
+import 'core/di/injector.dart';
 import 'core/router/app_router.dart';
+import 'features/shop/presentation/cart/cart_cubit.dart';
 import 'ui/theme.dart';
 
 class App extends StatefulWidget {
@@ -19,12 +22,17 @@ class _AppState extends State<App> {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp.router(
-      title: 'Machine Round',
-      debugShowCheckedModeBanner: false,
-      theme: buildTheme(Brightness.light),
-      darkTheme: buildTheme(Brightness.dark),
-      routerConfig: _router,
+    // The cart lives above the router: every screen reads the same instance.
+    // BlocProvider is lazy, so it is created on first read.
+    return BlocProvider(
+      create: (_) => sl<CartCubit>(),
+      child: MaterialApp.router(
+        title: 'Machine Round',
+        debugShowCheckedModeBanner: false,
+        theme: buildTheme(Brightness.light),
+        darkTheme: buildTheme(Brightness.dark),
+        routerConfig: _router,
+      ),
     );
   }
 }

@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:get_it/get_it.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../features/shop/shop_module.dart';
 import '../network/dio_client.dart';
 import '../storage/key_value_store.dart';
 
@@ -14,4 +15,5 @@ Future<void> configureDependencies() async {
   sl
     ..registerSingleton<KeyValueStore>(SharedPrefsStore(prefs))
     ..registerLazySingleton<Dio>(buildDio);
+  registerShopModule();
 }
