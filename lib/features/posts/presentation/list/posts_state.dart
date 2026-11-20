@@ -10,6 +10,10 @@ class PostsState extends Equatable {
     this.isLoadingMore = false,
     this.hasReachedEnd = false,
     this.loadMoreError,
+    this.query = '',
+    this.searchStatus = ViewStatus.initial,
+    this.searchResults = const [],
+    this.searchError,
   });
 
   final ViewStatus status;
@@ -28,6 +32,14 @@ class PostsState extends Equatable {
   /// automatically; the user taps Retry.
   final AppException? loadMoreError;
 
+  /// The trimmed query the search results belong to. Empty means browse mode.
+  final String query;
+  final ViewStatus searchStatus;
+  final List<Post> searchResults;
+  final AppException? searchError;
+
+  bool get isSearching => query.isNotEmpty;
+
   PostsState copyWith({
     ViewStatus? status,
     List<Post>? posts,
@@ -37,6 +49,10 @@ class PostsState extends Equatable {
     bool? isLoadingMore,
     bool? hasReachedEnd,
     AppException? Function()? loadMoreError,
+    String? query,
+    ViewStatus? searchStatus,
+    List<Post>? searchResults,
+    AppException? Function()? searchError,
   }) => PostsState(
     status: status ?? this.status,
     posts: posts ?? this.posts,
@@ -46,6 +62,10 @@ class PostsState extends Equatable {
     isLoadingMore: isLoadingMore ?? this.isLoadingMore,
     hasReachedEnd: hasReachedEnd ?? this.hasReachedEnd,
     loadMoreError: loadMoreError != null ? loadMoreError() : this.loadMoreError,
+    query: query ?? this.query,
+    searchStatus: searchStatus ?? this.searchStatus,
+    searchResults: searchResults ?? this.searchResults,
+    searchError: searchError != null ? searchError() : this.searchError,
   );
 
   @override
@@ -58,5 +78,9 @@ class PostsState extends Equatable {
     isLoadingMore,
     hasReachedEnd,
     loadMoreError,
+    query,
+    searchStatus,
+    searchResults,
+    searchError,
   ];
 }

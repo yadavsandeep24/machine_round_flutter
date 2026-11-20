@@ -78,4 +78,21 @@ class FakePostRepository implements PostRepository {
     if (commentsFailWith != null) return Failure(commentsFailWith!);
     return Success([Comment(id: postId * 10, name: 'Commenter', email: 'a@b.c', body: 'Nice')]);
   }
+
+  final List<String> searchedQueries = [];
+  AppException? searchFailWith;
+
+  /// Per-query artificial latency, to test that a stale response is dropped.
+  Map<String, Duration> searchDelays = {};
+
+  @override
+  Future<Result<List<Post>>> search(String query) async {
+    searchedQueries.add(query);
+    final delay = searchDelays[query];
+    if (delay != null) await Future<void>.delayed(delay);
+    if (searchFailWith != null) return Failure(searchFailWith!);
+    return Success(
+      remote.where((p) => p.title.toLowerCase().contains(query.toLowerCase())).toList(),
+    );
+  }
 }

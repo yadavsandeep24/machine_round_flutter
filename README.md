@@ -1,6 +1,28 @@
-# Machine Round Flutter: `feature/pagination-manual`
+# Machine Round Flutter: `feature/search-debounce`
 
-> Diff against the previous step: `git diff feature/post-detail..feature/pagination-manual`
+> Diff against the previous step: `git diff feature/pagination-manual..feature/search-debounce`
+
+## This step: server-side search with debounce and cancellation
+
+```
+keystroke ─► TextField (own controller: typing never lags)
+          ─► PostsQueryChanged(text)
+               switchMap(event ─► wait 300 ms (0 if blank or retry) ─► handler)
+                 └─ the next keystroke cancels the pending wait AND the running search
+               handler: trim ─► skip if same query already succeeded (distinct) ─► repo.search()
+```
+
+- **Why switchMap/restartable:** without it, a slow response for "fl" can land after "flutter" and overwrite it. Tested with per-query latency in the fake repository.
+- **Blank is instant:** clearing goes straight back to the cached browse list (no 300 ms wait).
+- **Retry** sends the same query with `force: true`, skipping both debounce and the distinct check.
+- **Results are not cached**; search goes straight to the API (`GET /posts?q=`). Old results stay visible under a `LinearProgressIndicator` while a new query loads.
+- **Local filtering instead?** Keep the same transformer and filter `state.posts` in the handler.
+- **Testing gotcha (worth knowing):** inside `testWidgets` (fake async), `await bloc.close()` on a bloc with a `switchMap`/`asyncExpand` transformer never completes. Let `BlocProvider(create:)` own the bloc, or use `tester.runAsync(bloc.close)`. And a zero-length `Future.delayed` can be skipped by `pumpAndSettle`, so the transformer calls the handler directly when there is no wait.
+- Tests: 5 search bloc tests (debounce, stale cancellation, distinct, instant clear, error + retry) and 1 widget test (type, empty result, clear). 31 total.
+
+---
+
+## Earlier step: `feature/pagination-manual`
 
 ## This step: hand-written load-more
 

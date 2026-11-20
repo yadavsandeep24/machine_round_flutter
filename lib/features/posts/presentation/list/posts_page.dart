@@ -27,7 +27,10 @@ class PostsView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Posts')),
+      appBar: AppBar(
+        title: const Text('Posts'),
+        bottom: const PreferredSize(preferredSize: Size.fromHeight(64), child: _SearchField()),
+      ),
       body: BlocConsumer<PostsBloc, PostsState>(
         listenWhen: (prev, curr) =>
             prev.error != curr.error && curr.error != null && curr.posts.isNotEmpty,
@@ -36,6 +39,7 @@ class PostsView extends StatelessWidget {
           ..showSnackBar(SnackBar(content: Text(state.error!.userMessage))),
         builder: (context, state) {
           final bloc = context.read<PostsBloc>();
+          if (state.isSearching) return _SearchResults(state: state);
           return switch (state.status) {
             ViewStatus.initial || ViewStatus.loading => const LoadingView(),
             ViewStatus.failure => ErrorView(
@@ -106,6 +110,100 @@ class _PostList extends StatelessWidget {
           );
         },
       ),
+    );
+  }
+}
+
+/// Owns its TextEditingController so typing never waits for the bloc
+/// (no cursor jumps, no lag while the debounce runs).
+class _SearchField extends StatefulWidget {
+  const _SearchField();
+
+  @override
+  State<_SearchField> createState() => _SearchFieldState();
+}
+
+class _SearchFieldState extends State<_SearchField> {
+  final _controller = TextEditingController();
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _onChanged(String value) {
+    context.read<PostsBloc>().add(PostsQueryChanged(value));
+    setState(() {}); // show or hide the clear button
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+      child: TextField(
+        controller: _controller,
+        onChanged: _onChanged,
+        textInputAction: TextInputAction.search,
+        decoration: InputDecoration(
+          hintText: 'Search posts',
+          prefixIcon: const Icon(Icons.search),
+          border: const OutlineInputBorder(),
+          isDense: true,
+          suffixIcon: _controller.text.isEmpty
+              ? null
+              : IconButton(
+                  tooltip: 'Clear',
+                  icon: const Icon(Icons.clear),
+                  onPressed: () {
+                    _controller.clear();
+                    _onChanged('');
+                  },
+                ),
+        ),
+      ),
+    );
+  }
+}
+
+class _SearchResults extends StatelessWidget {
+  const _SearchResults({required this.state});
+
+  final PostsState state;
+
+  @override
+  Widget build(BuildContext context) {
+    final results = state.searchResults;
+    final loading = state.searchStatus.isLoading;
+    if (state.searchStatus.isFailure) {
+      return ErrorView(
+        message: state.searchError?.userMessage ?? 'Search failed',
+        onRetry: () => context.read<PostsBloc>().add(PostsQueryChanged(state.query, force: true)),
+      );
+    }
+    if (loading && results.isEmpty) return const LoadingView();
+    if (!loading && results.isEmpty) {
+      return EmptyView(message: 'No results for "${state.query}"', icon: Icons.search_off);
+    }
+    return Column(
+      children: [
+        // Old results stay visible while the new query loads.
+        if (loading) const LinearProgressIndicator(),
+        Expanded(
+          child: ListView.separated(
+            itemCount: results.length,
+            separatorBuilder: (_, __) => const Divider(height: 1),
+            itemBuilder: (context, index) {
+              final post = results[index];
+              return PostTile(
+                key: ValueKey(post.id),
+                post: post,
+                onTap: () => context.go(Routes.postDetail(post.id)),
+              );
+            },
+          ),
+        ),
+      ],
     );
   }
 }

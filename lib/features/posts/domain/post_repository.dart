@@ -20,4 +20,7 @@ abstract interface class PostRepository {
   Future<Result<Post>> getPost(int id);
 
   Future<Result<List<Comment>>> getComments(int postId);
+
+  /// Server-side search. Not cached: results go straight to the UI.
+  Future<Result<List<Post>>> search(String query);
 }

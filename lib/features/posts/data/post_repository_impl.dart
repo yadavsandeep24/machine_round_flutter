@@ -52,4 +52,8 @@ class PostRepositoryImpl implements PostRepository {
 
   @override
   Future<Result<List<Comment>>> getComments(int postId) => safeCall(() => _api.getComments(postId));
+
+  @override
+  Future<Result<List<Post>>> search(String query) =>
+      safeCall(() => _api.getPosts(page: 1, limit: pageSize, query: query));
 }
