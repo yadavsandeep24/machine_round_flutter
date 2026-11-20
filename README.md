@@ -1,4 +1,21 @@
-# Machine Round Flutter: `02-posts-list`
+# Machine Round Flutter: `feature/post-detail`
+
+> Diff against the previous step: `git diff 02-posts-list..feature/post-detail`
+
+## This step: detail screen (Cubit) and path-param routing
+
+- **Route** `/posts/:id` nested under `/` in go_router, so the back button works and deep links open straight to a post. The id goes through `int.tryParse`, never `int.parse`.
+- **Cubit, not Bloc,** for a simple screen: method calls (`load()`) instead of events. Contrast with `PostsBloc` when asked "Bloc vs Cubit?".
+- **Sealed state** (`Loading` / `Loaded` / `Error`) with an exhaustive `switch` in the widget.
+- **Cache first, network fallback** in `PostRepositoryImpl.getPost`, for posts that were never cached (deep links, search results).
+- **Parallel requests:** post and comments load together with Dart 3 record `.wait`. A comments failure shows inline and does not fail the screen.
+- **`isClosed` check** after `await`: the user may have popped the screen; emitting on a closed cubit throws.
+- **`registerFactoryParam`** passes the id into the cubit through get_it.
+- Tests: 4 more for the cubit (cached, network fallback, not found, comments failure). 18 total.
+
+---
+
+## From `02-posts-list`
 
 A basic feature on top of `01-minimal`: fetch posts from `jsonplaceholder.typicode.com`, cache them locally (offline-first), and show loading, error with retry, empty and success states with pull-to-refresh. State management is **Bloc**.
 

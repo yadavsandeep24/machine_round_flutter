@@ -1,5 +1,6 @@
 import 'package:dio/dio.dart';
 
+import '../domain/comment.dart';
 import '../domain/post.dart';
 
 class PostApi {
@@ -23,5 +24,12 @@ class PostApi {
   Future<Post> getPost(int id) async {
     final response = await _dio.get<Map<String, dynamic>>('posts/$id');
     return Post.fromJson(response.data!);
+  }
+
+  Future<List<Comment>> getComments(int postId) async {
+    final response = await _dio.get<List<dynamic>>('posts/$postId/comments');
+    return (response.data ?? const [])
+        .map((e) => Comment.fromJson(e as Map<String, dynamic>))
+        .toList(growable: false);
   }
 }

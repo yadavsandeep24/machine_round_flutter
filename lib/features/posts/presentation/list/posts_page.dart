@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../../core/di/injector.dart';
+import '../../../../core/router/app_router.dart';
 import '../../../../core/ui/view_status.dart';
 import '../../../../core/ui/widgets/state_views.dart';
 import '../../domain/post.dart';
@@ -74,7 +76,11 @@ class _PostList extends StatelessWidget {
       separatorBuilder: (_, __) => const Divider(height: 1),
       itemBuilder: (context, index) {
         final post = posts[index];
-        return PostTile(key: ValueKey(post.id), post: post);
+        return PostTile(
+          key: ValueKey(post.id),
+          post: post,
+          onTap: () => context.go(Routes.postDetail(post.id)),
+        );
       },
     );
   }

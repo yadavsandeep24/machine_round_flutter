@@ -1,4 +1,5 @@
 import '../../../core/result/result.dart';
+import 'comment.dart';
 import 'post.dart';
 
 /// Owned by the domain, implemented by the data layer.
@@ -9,4 +10,10 @@ abstract interface class PostRepository {
 
   /// Fetches the first page from the network and replaces the cache.
   Future<Result<void>> refresh();
+
+  /// Cache first; falls back to the network for posts that are not cached
+  /// (for example a deep link or a search result).
+  Future<Result<Post>> getPost(int id);
+
+  Future<Result<List<Comment>>> getComments(int postId);
 }

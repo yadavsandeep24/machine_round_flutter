@@ -1,5 +1,6 @@
 import '../../../core/network/safe_call.dart';
 import '../../../core/result/result.dart';
+import '../domain/comment.dart';
 import '../domain/post.dart';
 import '../domain/post_repository.dart';
 import 'post_api.dart';
@@ -21,4 +22,15 @@ class PostRepositoryImpl implements PostRepository {
     final posts = await _api.getPosts(page: 1, limit: pageSize);
     await _local.replaceAll(posts);
   });
+
+  @override
+  Future<Result<Post>> getPost(int id) async {
+    for (final post in _local.read()) {
+      if (post.id == id) return Success(post);
+    }
+    return safeCall(() => _api.getPost(id));
+  }
+
+  @override
+  Future<Result<List<Comment>>> getComments(int postId) => safeCall(() => _api.getComments(postId));
 }
