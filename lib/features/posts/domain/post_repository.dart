@@ -1,5 +1,6 @@
 import '../../../core/result/result.dart';
 import 'comment.dart';
+import 'page_result.dart';
 import 'post.dart';
 
 /// Owned by the domain, implemented by the data layer.
@@ -8,8 +9,11 @@ import 'post.dart';
 abstract interface class PostRepository {
   Stream<List<Post>> watchPosts();
 
-  /// Fetches the first page from the network and replaces the cache.
-  Future<Result<void>> refresh();
+  /// Fetches page 1 and replaces the cache.
+  Future<Result<PageResult>> refresh();
+
+  /// Fetches [page] (2, 3, ...) and appends it to the cache.
+  Future<Result<PageResult>> loadPage(int page);
 
   /// Cache first; falls back to the network for posts that are not cached
   /// (for example a deep link or a search result).

@@ -5,6 +5,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/error/app_exception.dart';
 import '../../../../core/result/result.dart';
 import '../../../../core/ui/view_status.dart';
+import '../../domain/page_result.dart';
 import '../../domain/post.dart';
 import '../../domain/post_repository.dart';
 
@@ -15,6 +16,7 @@ class PostsBloc extends Bloc<PostsEvent, PostsState> {
   PostsBloc(this._repository) : super(const PostsState()) {
     on<PostsStarted>(_onStarted, transformer: droppable());
     on<PostsRefreshed>(_onRefreshed, transformer: droppable());
+    on<PostsNextPageRequested>(_onNextPage, transformer: droppable());
   }
 
   final PostRepository _repository;
@@ -38,12 +40,22 @@ class PostsBloc extends Bloc<PostsEvent, PostsState> {
         isRefreshing: true,
         status: state.posts.isEmpty ? ViewStatus.loading : state.status,
         error: () => null,
+        loadMoreError: () => null,
       ),
     );
     final result = await _repository.refresh();
     switch (result) {
-      case Success():
-        emit(state.copyWith(isRefreshing: false, status: ViewStatus.success));
+      case Success(data: PageResult(stale: true)):
+        emit(state.copyWith(isRefreshing: false));
+      case Success(:final data):
+        emit(
+          state.copyWith(
+            isRefreshing: false,
+            status: ViewStatus.success,
+            nextPage: 2,
+            hasReachedEnd: data.endReached,
+          ),
+        );
       case Failure(:final error):
         emit(
           state.copyWith(
@@ -52,6 +64,32 @@ class PostsBloc extends Bloc<PostsEvent, PostsState> {
             error: () => error,
           ),
         );
+    }
+  }
+
+  Future<void> _onNextPage(PostsNextPageRequested event, Emitter<PostsState> emit) async {
+    final blocked =
+        state.hasReachedEnd ||
+        state.isRefreshing ||
+        state.status != ViewStatus.success ||
+        (state.loadMoreError != null && !event.isRetry);
+    if (blocked) return;
+
+    emit(state.copyWith(isLoadingMore: true, loadMoreError: () => null));
+    final result = await _repository.loadPage(state.nextPage);
+    switch (result) {
+      case Success(data: PageResult(stale: true)):
+        emit(state.copyWith(isLoadingMore: false));
+      case Success(:final data):
+        emit(
+          state.copyWith(
+            isLoadingMore: false,
+            nextPage: state.nextPage + 1,
+            hasReachedEnd: data.endReached,
+          ),
+        );
+      case Failure(:final error):
+        emit(state.copyWith(isLoadingMore: false, loadMoreError: () => error));
     }
   }
 }

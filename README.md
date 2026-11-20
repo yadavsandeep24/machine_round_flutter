@@ -1,6 +1,22 @@
-# Machine Round Flutter: `feature/post-detail`
+# Machine Round Flutter: `feature/pagination-manual`
 
-> Diff against the previous step: `git diff 02-posts-list..feature/post-detail`
+> Diff against the previous step: `git diff feature/post-detail..feature/pagination-manual`
+
+## This step: hand-written load-more
+
+- **Trigger:** a `NotificationListener<ScrollNotification>` sends `PostsNextPageRequested` when fewer than 400 px remain (`extentAfter`). No `ScrollController` to dispose, and the widget stays stateless.
+- **Guards in the bloc:** `droppable()` (one load at a time), plus no load while refreshing, after the end, before the first page succeeded, or after an error until the user taps Retry (no retry loop while scrolling).
+- **Footer:** `LoadMoreFooter` shows a spinner or the error with Retry; it disappears at the end.
+- **End of data:** a page shorter than the page size. Swap for `hasMore` / `total` / `nextCursor` when the API gives one.
+- **Refresh vs in-flight load-more race:** the repository bumps a `_generation` on refresh. A page that started under an older generation comes back as `PageResult(stale: true)` and is not appended onto the new page 1 (tested with a `Completer`).
+- **Dedupe by id** when appending, because offset paging can shift items between pages.
+- Tests: 4 bloc pagination tests, 3 repository tests with a mocktail `PostApi` and a real `PostLocalSource` on `InMemoryStore`. 25 total.
+
+> Interviewer says "use a package"? `infinite_scroll_pagination` gives a `PagingController`; explain that it replaces the trigger and footer, while the repository stays the same.
+
+---
+
+## Earlier step: `feature/post-detail`
 
 ## This step: detail screen (Cubit) and path-param routing
 

@@ -55,7 +55,7 @@ class PostsView extends StatelessWidget {
                         EmptyView(message: 'No posts yet'),
                       ],
                     )
-                  : _PostList(posts: state.posts),
+                  : _PostList(state: state),
             ),
           };
         },
@@ -65,23 +65,47 @@ class PostsView extends StatelessWidget {
 }
 
 class _PostList extends StatelessWidget {
-  const _PostList({required this.posts});
+  const _PostList({required this.state});
 
-  final List<Post> posts;
+  final PostsState state;
+
+  /// Start loading the next page this many pixels before the end.
+  static const _prefetchExtent = 400.0;
 
   @override
   Widget build(BuildContext context) {
-    return ListView.separated(
-      itemCount: posts.length,
-      separatorBuilder: (_, __) => const Divider(height: 1),
-      itemBuilder: (context, index) {
-        final post = posts[index];
-        return PostTile(
-          key: ValueKey(post.id),
-          post: post,
-          onTap: () => context.go(Routes.postDetail(post.id)),
-        );
+    final posts = state.posts;
+    final showFooter = !state.hasReachedEnd;
+    return NotificationListener<ScrollNotification>(
+      onNotification: (notification) {
+        if (notification.metrics.extentAfter < _prefetchExtent) {
+          // droppable() + guards in the bloc make repeated calls harmless.
+          context.read<PostsBloc>().add(const PostsNextPageRequested());
+        }
+        return false;
       },
+      child: ListView.separated(
+        // Always scrollable so a short first page can still trigger refresh.
+        physics: const AlwaysScrollableScrollPhysics(),
+        itemCount: posts.length + (showFooter ? 1 : 0),
+        separatorBuilder: (_, __) => const Divider(height: 1),
+        itemBuilder: (context, index) {
+          if (index == posts.length) {
+            return LoadMoreFooter(
+              isLoading: state.isLoadingMore,
+              errorMessage: state.loadMoreError?.userMessage,
+              onRetry: () =>
+                  context.read<PostsBloc>().add(const PostsNextPageRequested(isRetry: true)),
+            );
+          }
+          final post = posts[index];
+          return PostTile(
+            key: ValueKey(post.id),
+            post: post,
+            onTap: () => context.go(Routes.postDetail(post.id)),
+          );
+        },
+      ),
     );
   }
 }

@@ -6,6 +6,10 @@ class PostsState extends Equatable {
     this.posts = const [],
     this.isRefreshing = false,
     this.error,
+    this.nextPage = 2,
+    this.isLoadingMore = false,
+    this.hasReachedEnd = false,
+    this.loadMoreError,
   });
 
   final ViewStatus status;
@@ -16,18 +20,43 @@ class PostsState extends Equatable {
   /// over cached data.
   final AppException? error;
 
+  final int nextPage;
+  final bool isLoadingMore;
+  final bool hasReachedEnd;
+
+  /// Shown in the list footer. While set, scrolling does not retry
+  /// automatically; the user taps Retry.
+  final AppException? loadMoreError;
+
   PostsState copyWith({
     ViewStatus? status,
     List<Post>? posts,
     bool? isRefreshing,
     AppException? Function()? error,
+    int? nextPage,
+    bool? isLoadingMore,
+    bool? hasReachedEnd,
+    AppException? Function()? loadMoreError,
   }) => PostsState(
     status: status ?? this.status,
     posts: posts ?? this.posts,
     isRefreshing: isRefreshing ?? this.isRefreshing,
     error: error != null ? error() : this.error,
+    nextPage: nextPage ?? this.nextPage,
+    isLoadingMore: isLoadingMore ?? this.isLoadingMore,
+    hasReachedEnd: hasReachedEnd ?? this.hasReachedEnd,
+    loadMoreError: loadMoreError != null ? loadMoreError() : this.loadMoreError,
   );
 
   @override
-  List<Object?> get props => [status, posts, isRefreshing, error];
+  List<Object?> get props => [
+    status,
+    posts,
+    isRefreshing,
+    error,
+    nextPage,
+    isLoadingMore,
+    hasReachedEnd,
+    loadMoreError,
+  ];
 }
