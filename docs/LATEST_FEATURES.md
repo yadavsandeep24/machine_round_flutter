@@ -7,3 +7,4 @@ Note: this machine has Flutter 3.32.5 / Dart 3.8.1, so features that need a newe
 | Date | Branch | Feature | Source |
 |---|---|---|---|
 | 2026-11-27 | `latest/2026-11-27-null-aware-elements` | Dart 3.8 null-aware collection elements (`?expr`) for API query parameters and optional widget children | [What's new in Dart](https://dart.dev/resources/whats-new) (Dart 3.8, 20 May 2025) |
+| 2026-11-28 | `latest/2026-11-28-expansible-controller` | Flutter 3.32 `Expansible` + `ExpansibleController` (payments help accordion: deep link, expand/collapse all; replaces deprecated `ExpansionTileController`) | [Deprecated ExpansionTileController](https://docs.flutter.dev/release/breaking-changes/expansion-tile-controller) (Flutter 3.32, 20 May 2025) |
