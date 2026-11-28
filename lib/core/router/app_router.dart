@@ -1,21 +1,18 @@
-import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+
+import '../../features/help/presentation/faq_page.dart';
 
 abstract final class Routes {
   static const home = '/';
 }
 
-GoRouter buildRouter() => GoRouter(
-  initialLocation: Routes.home,
-  routes: [GoRoute(path: Routes.home, builder: (context, state) => const _HomePlaceholder())],
+GoRouter buildRouter({String initialLocation = Routes.home}) => GoRouter(
+  initialLocation: initialLocation,
+  routes: [
+    GoRoute(
+      path: Routes.home,
+      // Deep link: /?open=declined opens that answer on arrival.
+      builder: (context, state) => FaqPage(initiallyOpen: state.uri.queryParameters['open']),
+    ),
+  ],
 );
-
-class _HomePlaceholder extends StatelessWidget {
-  const _HomePlaceholder();
-
-  @override
-  Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: const Text('Machine Round')),
-    body: const Center(child: Text('Add your first feature in lib/features/')),
-  );
-}
